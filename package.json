@@ -1,6 +1,7 @@
 {
   "name": "MyAPp",
   "version": "0.0.1",
+  "onnxruntimeExtensionsEnabled": "true",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -10,13 +11,16 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-documents/picker": "^10.1.7",
     "@react-native/new-app-screen": "0.81.4",
     "@xenova/transformers": "^2.17.2",
     "gpt-tokenizer": "^3.0.1",
     "onnxruntime-react-native": "^1.23.0",
     "react": "19.1.0",
     "react-native": "0.81.4",
+    "react-native-blob-util": "^0.22.2",
     "react-native-executorch": "^0.5.8",
+    "react-native-fs": "^2.20.0",
     "react-native-safe-area-context": "^5.5.2"
   },
   "devDependencies": {

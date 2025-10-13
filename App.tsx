@@ -1,138 +1,90 @@
-// import React, { useEffect, useState } from 'react';
-// import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-// import { AutoTokenizer, PreTrainedTokenizer } from '@xenova/transformers';
+import React from 'react';
+import { View, Text, TextInput, StyleSheet, Button } from 'react-native';
+import * as ort from 'onnxruntime-react-native';
+import { pick } from '@react-native-documents/picker';
+import RNFS from 'react-native-fs';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 
-// const tokenizer = require('assets/tokenizer.json');
+const HelloWorks = () => {
+  const [textInput, setText] = React.useState('');
+  const [result, setResult] = React.useState('');
+  const [modelPath, setModelPath] = React.useState<string>('');
 
-// const HomePage = () => {
-//   const [tokenizer, setTokenizer] = useState<PreTrainedTokenizer | null>(null);
-//   const [inputText, setInputText] = useState('');
-//   const [tokens, setTokens] = useState<number[]>([]);
-//   const [loading, setLoading] = useState(true);
+  const pickModelFile = async () => {};
+  const handleUploadModel = async () => {
+    try {
+      const file = await pick();
+      console.log('selected file is : ', file);
 
-//   const handleTokenize =() => {
-//     const ids = token
-//   }
-//   return (
-//     <View style={styles.baseLine}>
-//       <Text>Enter text to tokenize:</Text>
-//       <TextInput
-//         style={styles.textBox}
-//         placeholder="Enter any text"
-//         value={inputText}
-//         onChangeText={setInputText}
-//       />
-//       <Button
-//         title={loading ? 'Loading Tokenizer...' : 'Tokenize Text'}
-//         // onPress={handleTokenize}
-//         disabled={loading}
-//       />
-//       <Text>Tokens: {tokens.join(', ')}</Text>
-//     </View>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   baseLine: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     backgroundColor: 'grey',
-//     padding: 10,
-//   },
-//   textBox: {
-//     borderWidth: 1,
-//     padding: 10,
-//     marginVertical: 10,
-//   },
-// });
-
-// export default HomePage;
-import React, { useState } from 'react';
-import { View, TextInput, Button, Text } from 'react-native';
-import tokenizerJson from './assets/tokenizer.json';
-
-const App = () => {
-  const [inputText, setInputText] = useState('');
-  const [tokenIds, setTokenIds] = useState<number[]>([]);
-
-  const model = tokenizerJson.model;
-
-  const vocab = model?.vocab || {};
-  const mergesRaw = model?.merges || [];
-
-  const merges = mergesRaw.map((m: any) =>
-    Array.isArray(m) ? m.join(' ') : m,
-  );
-
-  const vocabMap = new Map(Object.entries(vocab));
-  const mergeRanks = new Map(merges.map((m: string, i: number) => [m, i]));
-
-  const bytePairEncode = (text: string): number[] => {
-    let tokens = text.split('');
-
-    while (true) {
-      let pairs: string[][] = [];
-      for (let i = 0; i < tokens.length - 1; i++) {
-        pairs.push([tokens[i], tokens[i + 1]]);
+      // const destPath = `${RNFS.DocumentDirectoryPath}/model.onnx`;
+      const destPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/model.onnx`;
+      console.log('the path in which the model resides is .: ', destPath);
+      console.log('the file[0].uri: ', file[0].uri);
+      // await RNFS.copyFile(file[0].uri, destPath);
+      await ReactNativeBlobUtil.fs.cp(file[0].uri, destPath);
+      setModelPath(destPath);
+      console.log('the model path is : ', modelPath);
+    } catch (err) {
+      if (err) {
+        console.log('Error in upload!');
+      } else {
+        console.log('Error occured :', err);
       }
-
-      let minRank = Infinity;
-      let bestPair: string[] | null = null;
-      for (const pair of pairs) {
-        const pairStr = pair.join(' ');
-        const rank = mergeRanks.get(pairStr);
-        if (rank !== undefined && rank < minRank) {
-          minRank = rank;
-          bestPair = pair;
-        }
-      }
-
-      if (!bestPair) break;
-
-      const newTokens: string[] = [];
-      let i = 0;
-      while (i < tokens.length) {
-        if (
-          i < tokens.length - 1 &&
-          tokens[i] === bestPair[0] &&
-          tokens[i + 1] === bestPair[1]
-        ) {
-          newTokens.push(bestPair.join(''));
-          i += 2;
-        } else {
-          newTokens.push(tokens[i]);
-          i++;
-        }
-      }
-      tokens = newTokens;
     }
-
-    const unkId = vocabMap.get('<unk>') ?? 0;
-    return tokens.map((t: string) => vocabMap.get(t) ?? unkId);
   };
-  const handleTokenize = () => {
-    const ids = bytePairEncode(inputText);
-    setTokenIds(ids);
+
+  const handleTokenization = async () => {
+    console.log('Entered the onbutton click function.!');
+    try {
+      const res = await fetch(
+        `http://192.168.68.184:8080/tokenization?input_str=${encodeURIComponent(
+          textInput,
+        )}`,
+      );
+      const data = await res.json();
+
+      console.log('after the fetch api', data);
+      setResult(data.message);
+      console.log('next step onnx loading of the model embedding gemma');
+      const session: ort.InferenceSession = await ort.InferenceSession.create(
+        modelPath,
+      );
+      console.log('Model loaded successfully!');
+      console.log('Input names:', session.inputNames);
+      const inputname = session.inputNames;
+      console.log('The input names of the onnx model is : ', inputname);
+    } catch (err) {
+      console.error(err);
+      setResult('Error Connecting to the server!');
+    }
   };
 
   return (
-    <View style={{ padding: 20 }}>
+    <View style={styles.baseLine}>
+      <Text>Enter the Text that you want to search in the corpus.: </Text>
       <TextInput
-        style={{
-          borderWidth: 1,
-          borderColor: 'gray',
-          marginBottom: 10,
-          padding: 5,
-          height: 40,
-        }}
-        placeholder="Enter text"
-        value={inputText}
-        onChangeText={setInputText}
-      />
-      <Button title="Tokenize" onPress={handleTokenize} />
-      <Text style={{ marginTop: 10 }}>Token IDs: {tokenIds.join(', ')}</Text>
+        style={styles.inputBox1}
+        placeholder="Any text you want to search"
+        value={textInput}
+        onChangeText={setText}
+      ></TextInput>
+      <Button title="Upload Model" onPress={handleUploadModel}></Button>
+      <Button title="Enter" onPress={handleTokenization}></Button>
+      <Text> {result}</Text>
     </View>
   );
 };
+const styles = StyleSheet.create({
+  baseLine: {
+    flex: 1,
+    backgroundColor: 'grey',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputBox1: {
+    borderWidth: 1,
+    borderColor: 'cyan',
+  },
+});
 
-export default App;
+export default HelloWorks;
