@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, Button } from 'react-native';
 import * as ort from 'onnxruntime-react-native';
-import { pick } from '@react-native-documents/picker';
+import { keepLocalCopy, pick } from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 
@@ -11,25 +11,42 @@ const HelloWorks = () => {
   const [modelPath, setModelPath] = React.useState<string>('');
 
   const pickModelFile = async () => {};
+
   const handleUploadModel = async () => {
     try {
-      const file = await pick();
-      console.log('selected file is : ', file);
+      const files = await pick();
+      const file = files[0];
+      console.log(`Selected file: ${file.uri}, Size: ${file.size}`);
 
-      // const destPath = `${RNFS.DocumentDirectoryPath}/model.onnx`;
-      const destPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/model.onnx`;
-      console.log('the path in which the model resides is .: ', destPath);
-      console.log('the file[0].uri: ', file[0].uri);
-      // await RNFS.copyFile(file[0].uri, destPath);
-      await ReactNativeBlobUtil.fs.cp(file[0].uri, destPath);
-      setModelPath(destPath);
-      console.log('the model path is : ', modelPath);
-    } catch (err) {
-      if (err) {
-        console.log('Error in upload!');
-      } else {
-        console.log('Error occured :', err);
+      const [copyResult] = await keepLocalCopy({
+        files: [
+          {
+            uri: file.uri,
+            fileName: 'model.onnx',
+          },
+        ],
+        destination: 'documentDirectory',
+      });
+
+      console.log(copyResult);
+      if (copyResult.status === 'success') {
+        console.log(
+          `The position of the copied file is : ${copyResult.localUri}`,
+        );
+        setModelPath(copyResult.localUri);
       }
+
+      // const destPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/model.onnx`;
+      // console.log('the path in which the model resides is .: ', destPath);
+      // console.log('the file[0].uri: ', file.uri);
+
+      // const data = await ReactNativeBlobUtil.fs.readFile(file.uri, 'base64');
+      // await ReactNativeBlobUtil.fs.writeFile(destPath, data, 'base64');
+
+      // setModelPath(destPath);
+      // console.log('the model path is : ', destPath);
+    } catch (err) {
+      console.log('Error occured :', err);
     }
   };
 
@@ -42,12 +59,16 @@ const HelloWorks = () => {
         )}`,
       );
       const data = await res.json();
-
+      // const data = '';
       console.log('after the fetch api', data);
       setResult(data.message);
-      console.log('next step onnx loading of the model embedding gemma');
+      console.log(
+        'next step onnx loading of the model embedding gemma ',
+        modelPath,
+      );
       const session: ort.InferenceSession = await ort.InferenceSession.create(
         modelPath,
+        {},
       );
       console.log('Model loaded successfully!');
       console.log('Input names:', session.inputNames);
@@ -74,6 +95,7 @@ const HelloWorks = () => {
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   baseLine: {
     flex: 1,
