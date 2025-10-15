@@ -29,7 +29,7 @@ const HelloWorks = () => {
         console.log('onnx copied');
       }
 
-      setModelPath(modelPath); // ✅ store the path for later use
+      setModelPath(modelPath);
       console.log(`Model path set to state: ${modelPath}`);
 
       console.log('before file pick');
@@ -49,18 +49,6 @@ const HelloWorks = () => {
       console.log(`Copying onnx_data to ${dataPath}`);
       await RNFS.copyFile(file.uri, dataPath);
       console.log(`onnx_data copied`);
-
-      // const modelUri = `file://${modelPath}`;
-      // console.log(`Loading ONNX model, URI: ${modelUri} -`);
-      // session = await ort.InferenceSession.create(modelUri);
-      // console.log('Model loaded successfully!');
-
-      // Alert.alert(
-      //   'Model loaded successfully',
-      //   `Inputs: ${session.inputNames.join(
-      //     ', ',
-      //   )}\nOutputs: ${session.outputNames.join(', ')}`,
-      // );
 
       console.log('Model loaded and input names accessed');
     } catch (e: any) {
