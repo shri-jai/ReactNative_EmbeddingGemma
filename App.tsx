@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, Button } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Button, Alert } from 'react-native';
 import * as ort from 'onnxruntime-react-native';
 import { keepLocalCopy, pick } from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
@@ -12,49 +12,68 @@ const HelloWorks = () => {
 
   const pickModelFile = async () => {};
 
-  const handleUploadModel = async () => {
+  let session: ort.InferenceSession | null = null;
+
+  const handleUploadModel = async (): Promise<void> => {
     try {
-      const files = await pick();
-      const file = files[0];
-      console.log(`Selected file: ${file.uri}, Size: ${file.size}`);
+      console.log('Entered the handleUploadmodel function');
 
-      const [copyResult] = await keepLocalCopy({
-        files: [
-          {
-            uri: file.uri,
-            fileName: 'model.onnx',
-          },
-        ],
-        destination: 'documentDirectory',
-      });
+      const modelFileName = 'model.onnx';
+      const modelPath = `${RNFS.DocumentDirectoryPath}/${modelFileName}`;
 
-      console.log(copyResult);
-      if (copyResult.status === 'success') {
-        console.log(
-          `The position of the copied file is : ${copyResult.localUri}`,
-        );
-        setModelPath(copyResult.localUri);
+      const exists = await RNFS.exists(modelPath);
+      console.log(`.onnx exists: ${exists}`);
+      if (!exists) {
+        console.log(`Copying onnx from Android assets`);
+        await RNFS.copyFileAssets(modelFileName, modelPath);
+        console.log('onnx copied');
       }
 
-      // const destPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/model.onnx`;
-      // console.log('the path in which the model resides is .: ', destPath);
-      // console.log('the file[0].uri: ', file.uri);
+      setModelPath(modelPath); // ✅ store the path for later use
+      console.log(`Model path set to state: ${modelPath}`);
 
-      // const data = await ReactNativeBlobUtil.fs.readFile(file.uri, 'base64');
-      // await ReactNativeBlobUtil.fs.writeFile(destPath, data, 'base64');
+      console.log('before file pick');
+      const res = await pick();
+      console.log('after file picked');
+      const file = res[0];
+      console.log(
+        `File picked: uri=${file.uri}, name=${file.name}, size=${file.size}`,
+      );
 
-      // setModelPath(destPath);
-      // console.log('the model path is : ', destPath);
-    } catch (err) {
-      console.log('Error occured :', err);
+      if (!file.name || !file.name.endsWith('.onnx_data')) {
+        Alert.alert('Invalid file', 'Select the correct .onnx_data file');
+        return;
+      }
+
+      const dataPath = `${RNFS.DocumentDirectoryPath}/model.onnx_data`;
+      console.log(`Copying onnx_data to ${dataPath}`);
+      await RNFS.copyFile(file.uri, dataPath);
+      console.log(`onnx_data copied`);
+
+      // const modelUri = `file://${modelPath}`;
+      // console.log(`Loading ONNX model, URI: ${modelUri} -`);
+      // session = await ort.InferenceSession.create(modelUri);
+      // console.log('Model loaded successfully!');
+
+      // Alert.alert(
+      //   'Model loaded successfully',
+      //   `Inputs: ${session.inputNames.join(
+      //     ', ',
+      //   )}\nOutputs: ${session.outputNames.join(', ')}`,
+      // );
+
+      console.log('Model loaded and input names accessed');
+    } catch (e: any) {
+      Alert.alert('Failed to load model', e.message ?? String(e));
+      console.log(`Error caught in loadModel: ${e}`);
     }
   };
 
   const handleTokenization = async () => {
-    console.log('Entered the onbutton click function.!');
+    console.log('Entered the onbutton click function!');
     try {
       const res = await fetch(
-        `http://192.168.68.184:8080/tokenization?input_str=${encodeURIComponent(
+        `http://192.168.0.108:8080/tokenization?input_str=${encodeURIComponent(
           textInput,
         )}`,
       );
@@ -66,14 +85,17 @@ const HelloWorks = () => {
         'next step onnx loading of the model embedding gemma ',
         modelPath,
       );
-      const session: ort.InferenceSession = await ort.InferenceSession.create(
-        modelPath,
-        {},
-      );
+      const modelUri = `file://${modelPath}`;
+      console.log(`Loading ONNX model, URI: ${modelUri} -`);
+      session = await ort.InferenceSession.create(modelUri);
       console.log('Model loaded successfully!');
-      console.log('Input names:', session.inputNames);
-      const inputname = session.inputNames;
-      console.log('The input names of the onnx model is : ', inputname);
+
+      Alert.alert(
+        'Model loaded successfully',
+        `Input names: ${session.inputNames.join(
+          ', ',
+        )}\nOutputs names: ${session.outputNames.join(', ')}`,
+      );
     } catch (err) {
       console.error(err);
       setResult('Error Connecting to the server!');
